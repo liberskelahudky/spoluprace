@@ -195,13 +195,16 @@ textarea{resize:vertical;min-height:60px;}
 .adm-row:hover{background:#faf7f1;}
 .adm-row .adm-thumb{width:40px;height:40px;border-radius:6px;object-fit:cover;background:#ebe3d4;flex-shrink:0;}
 .adm-row .adm-thumb.broken{border:2px solid #E85520;}
-.adm-row .adm-info{min-width:0;flex-shrink:0;width:130px;}
+.adm-row .adm-info{min-width:0;flex-shrink:0;width:180px;}
 .adm-row .adm-code{font-family:'JetBrains Mono',monospace;font-size:10px;color:#a08a6e;}
 .adm-row .adm-name{font-size:12px;color:#2a1a0e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .adm-row .adm-url{flex:1;min-width:0;}
 .adm-row .adm-url input{width:100%;padding:5px 8px;border:1px solid #e0d6c6;border-radius:5px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#2a1a0e;outline:none;}
 .adm-row .adm-url input:focus{border-color:#E85520;}
 .adm-row .adm-url input.changed{background:#fdf5f0;border-color:#E85520;}
+.adm-row .adm-name-input{width:100%;padding:4px 7px;border:1px solid #e0d6c6;border-radius:5px;font-size:12px;font-family:'Inter',sans-serif;color:#2a1a0e;outline:none;}
+.adm-row .adm-name-input:focus{border-color:#E85520;}
+.adm-row .adm-name-input.changed{background:#fdf5f0;border-color:#E85520;}
 .adm-foot{padding:12px 16px;border-top:1px solid #e6ddd0;display:flex;gap:8px;justify-content:space-between;align-items:center;}
 .adm-foot .adm-status{font-size:11px;color:#a08a6e;}
 .adm-foot button{padding:8px 20px;border-radius:7px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .12s;}
@@ -686,10 +689,12 @@ function buildAdmin(){
     var code=qi.getAttribute('data-code');
     var name=qi.getAttribute('data-name');
     var src=overrides[code]||imgs[i].getAttribute('src');
+    var nameOvr=JSON.parse(localStorage.getItem('ll_name_overrides')||'{}');
+    var displayName=nameOvr[code]||name;
     html+='<div class="adm-row" data-code="'+code+'" data-name="'+name.toLowerCase()+'">'
       +'<img class="adm-thumb" src="'+src+'" onerror="this.className=\'adm-thumb broken\'">'
-      +'<div class="adm-info"><div class="adm-code">'+code+'</div><div class="adm-name">'+name+'</div></div>'
-      +'<div class="adm-url"><input type="text" value="'+src+'" onchange="markChanged(this)" data-code="'+code+'"></div>'
+      +'<div class="adm-info"><div class="adm-code">'+code+'</div><input class="adm-name-input" value="'+displayName.replace(/"/g,'&quot;')+'" data-code="'+code+'" data-field="name" onchange="markChanged(this)"></div>'
+      +'<div class="adm-url"><input type="text" value="'+src+'" onchange="markChanged(this)" data-code="'+code+'" data-field="url"></div>'
       +'</div>';
   }
   list.innerHTML=html;
@@ -706,27 +711,39 @@ function filterAdmin(){
   }
 }
 function saveAdmin(){
-  var inputs=document.querySelectorAll('.adm-url input');
-  var overrides=JSON.parse(localStorage.getItem('ll_img_overrides')||'{}');
-  var changed=0;
-  for(var i=0;i<inputs.length;i++){
-    var code=inputs[i].getAttribute('data-code');
-    var val=inputs[i].value.replace(/^\s+|\s+$/g,'');
-    if(val){overrides[code]=val;changed++;}
+  var urlInputs=document.querySelectorAll('.adm-url input');
+  var imgOvr=JSON.parse(localStorage.getItem('ll_img_overrides')||'{}');
+  for(var i=0;i<urlInputs.length;i++){
+    var code=urlInputs[i].getAttribute('data-code');
+    var val=urlInputs[i].value.replace(/^\s+|\s+$/g,'');
+    if(val)imgOvr[code]=val;
   }
-  localStorage.setItem('ll_img_overrides',JSON.stringify(overrides));
+  localStorage.setItem('ll_img_overrides',JSON.stringify(imgOvr));
+  var nameInputs=document.querySelectorAll('.adm-name-input');
+  var nameOvr=JSON.parse(localStorage.getItem('ll_name_overrides')||'{}');
+  var changed=0;
+  for(var i=0;i<nameInputs.length;i++){
+    var code=nameInputs[i].getAttribute('data-code');
+    var val=nameInputs[i].value.replace(/^\s+|\s+$/g,'');
+    if(val){nameOvr[code]=val;changed++;}
+  }
+  localStorage.setItem('ll_name_overrides',JSON.stringify(nameOvr));
   applyOverrides();
-  document.getElementById('adm-status').textContent='Uloženo! '+changed+' obrázků.';
+  document.getElementById('adm-status').textContent='Uloženo! '+changed+' produktů.';
   setTimeout(function(){document.getElementById('adm-status').textContent='';},2500);
 }
 function applyOverrides(){
-  var overrides=JSON.parse(localStorage.getItem('ll_img_overrides')||'{}');
-  var imgs=document.querySelectorAll('.tile-img img');
-  for(var i=0;i<imgs.length;i++){
-    var tile=imgs[i].closest('.tile');
-    var qi=tile.querySelector('.qi');
+  var imgOvr=JSON.parse(localStorage.getItem('ll_img_overrides')||'{}');
+  var nameOvr=JSON.parse(localStorage.getItem('ll_name_overrides')||'{}');
+  var tiles=document.querySelectorAll('.tile');
+  for(var i=0;i<tiles.length;i++){
+    var qi=tiles[i].querySelector('.qi');
     var code=qi.getAttribute('data-code');
-    if(overrides[code]){imgs[i].src=overrides[code];}
+    if(imgOvr[code]){var im=tiles[i].querySelector('.tile-img img');if(im)im.src=imgOvr[code];}
+    if(nameOvr[code]){
+      var nm=tiles[i].querySelector('.tile-name');if(nm)nm.textContent=nameOvr[code];
+      qi.setAttribute('data-name',nameOvr[code]);
+    }
   }
 }
 applyOverrides();
